@@ -106,85 +106,85 @@ function getVersionSuffix(feature: string, debug: boolean): string {
     return `${debugSuffix}${featureSuffix}${commitSuffix}`
 }
 
-async function main() {
-    const args = parseArgs()
-    // It is expected that this will package from a packages/{subproject} folder.
-    // There is a base config in packages/
-    const packageJsonFile = './package.json'
-    const backupJsonFile = `${packageJsonFile}.package.bk`
-    const webpackConfigJsFile = '../webpack.base.config.js'
-    const backupWebpackConfigFile = `${webpackConfigJsFile}.package.bk`
-
-    if (!nodefs.existsSync(packageJsonFile)) {
-        throw new Error(`package.json not found, cannot package this directory: ${process.cwd()}`)
-    }
-
-    let release = true
-
-    try {
-        release = isRelease()
-
-        if (release && isBeta()) {
-            throw new Error('Cannot package VSIX as both a release and a beta simultaneously')
-        }
-        // Create backup file so we can restore the originals later.
-        nodefs.copyFileSync(packageJsonFile, backupJsonFile)
-        const packageJson = JSON.parse(nodefs.readFileSync(packageJsonFile, { encoding: 'utf-8' }))
-
-        if (!release || args.debug) {
-            const versionSuffix = getVersionSuffix(args.feature, args.debug)
-            const version = packageJson.version
-            if (isBeta()) {
-                // Declare an arbitrarily high version number, to stop VSC from auto-updating "beta" builds.
-                packageJson.version = `99.0.0${versionSuffix}`
-            } else {
-                packageJson.version = version.replace('-SNAPSHOT', versionSuffix)
-            }
-
-            if (args.skipClean) {
-                // Clearly we need `prepublish` to be a standalone script and not a bunch of `npm` commands
-                const prepublish = packageJson.scripts['vscode:prepublish']
-                const replaced = prepublish.replace('npm run clean', 'echo "Skipped clean"')
-                packageJson.scripts['vscode:prepublish'] = replaced
-            }
-
-            if (args.debug) {
-                nodefs.copyFileSync(webpackConfigJsFile, backupWebpackConfigFile)
-                const webpackConfigJs = nodefs.readFileSync(webpackConfigJsFile, { encoding: 'utf-8' })
-                nodefs.writeFileSync(webpackConfigJsFile, webpackConfigJs.replace(/minimize: true/, 'minimize: false'))
-            }
-        }
-
-        nodefs.writeFileSync(packageJsonFile, JSON.stringify(packageJson, undefined, '    '))
-
-        // add language server bundle
-        if (packageJson.name === 'amazon-q-vscode') {
-            await downloadLanguageServer()
-        }
-
-        child_process.execFileSync(
-            'vsce',
-            [
-                'package',
-                '--ignoreFile',
-                '../.vscodeignore.packages',
-                /**
-                 * Depdendency gathering not required because we bundle with webpack: https://github.com/microsoft/vscode-vsce/issues/439
-                 *
-                 * Removing this arg will cause packaging to break due to issues in src.gen/.../node_modules,
-                 * since those dependencies are disjoint (i.e. not a workspace in the root package.json)
-                 */
-                '--no-dependencies',
-            ],
-            {
-                stdio: 'inherit',
-                shell: process.platform === 'win32', // For vsce.cmd on Windows.
-            }
-        )
-
-        console.log(`VSIX Version: ${packageJson.version}`)
-
-        // Hoist .vsix to root folder, because the release infra expects it to be there.
+            async function main() {
+                const args = parseArgs()
+                // It is expected that this will package from a packages/{subproject} folder.
+                // There is a base config in packages/
+                const packageJsonFile = './package.json'
+                const backupJsonFile = `${packageJsonFile}.package.bk`
+                const webpackConfigJsFile = '../webpack.base.config.js'
+                const backupWebpackConfigFile = `${webpackConfigJsFile}.package.bk`
+            
+                if (!nodefs.existsSync(packageJsonFile)) {
+                    throw new Error(`package.json not found, cannot package this directory: ${process.cwd()}`)
+                }
+            
+                let release = true
+            
+                try {
+                    release = isRelease()
+            
+                    if (release && isBeta()) {
+                        throw new Error('Cannot package VSIX as both a release and a beta simultaneously')
+                    }
+                    // Create backup file so we can restore the originals later.
+                    nodefs.copyFileSync(packageJsonFile, backupJsonFile)
+                    const packageJson = JSON.parse(nodefs.readFileSync(packageJsonFile, { encoding: 'utf-8' }))
+            
+                    if (!release || args.debug) {
+                        const versionSuffix = getVersionSuffix(args.feature, args.debug)
+                        const version = packageJson.version
+                        if (isBeta()) {
+                            // Declare an arbitrarily high version number, to stop VSC from auto-updating "beta" builds.
+                            packageJson.version = `99.0.0${versionSuffix}`
+                        } else {
+                            packageJson.version = version.replace('-SNAPSHOT', versionSuffix)
+                        }
+            
+                        if (args.skipClean) {
+                            // Clearly we need `prepublish` to be a standalone script and not a bunch of `npm` commands
+                            const prepublish = packageJson.scripts['vscode:prepublish']
+                            const replaced = prepublish.replace('npm run clean', 'echo "Skipped clean"')
+                            packageJson.scripts['vscode:prepublish'] = replaced
+                        }
+            
+                        if (args.debug) {
+                            nodefs.copyFileSync(webpackConfigJsFile, backupWebpackConfigFile)
+                            const webpackConfigJs = nodefs.readFileSync(webpackConfigJsFile, { encoding: 'utf-8' })
+                            nodefs.writeFileSync(webpackConfigJsFile, webpackConfigJs.replace(/minimize: true/, 'minimize: false'))
+                        }
+                    }
+            
+                    nodefs.writeFileSync(packageJsonFile, JSON.stringify(packageJson, undefined, '    '))
+            
+                    // add language server bundle
+                    if (packageJson.name === 'amazon-q-vscode') {
+                        await downloadLanguageServer()
+                    }
+            
+                    child_process.execFileSync(
+                        'vsce',
+                        [
+                            'package',
+                            '--ignoreFile',
+                            '../.vscodeignore.packages',
+                            /**
+                             * Depdendency gathering not required because we bundle with webpack: https://github.com/microsoft/vscode-vsce/issues/439
+                             *
+                             * Removing this arg will cause packaging to break due to issues in src.gen/.../node_modules,
+                             * since those dependencies are disjoint (i.e. not a workspace in the root package.json)
+                             */
+                            '--no-dependencies',
+                        ],
+                        {
+                            stdio: 'inherit',
+                            shell: process.platform === 'win32', // For vsce.cmd on Windows.
+                        }
+                    )
+            
+                    console.log(`VSIX Version: ${packageJson.version}`)
+            
+                    // Hoist .vsix to root folder, because the release infra expects it to be there.
         // TODO: Once we can support releasing multiple artifacts,
         // let's just keep the .vsix in its respective project folder in packages/
         const vsixName = `${packageJson.name}-${packageJson.version}.vsix`
