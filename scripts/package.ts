@@ -22,73 +22,73 @@ import * as nodefs from 'fs' // eslint-disable-line no-restricted-imports
 import * as path from 'path'
 import { downloadLanguageServer } from './lspArtifact'
 
-function parseArgs() {
-    // Invoking this script with argument "foo":
-    //   $ npm run package -- foo
-    // yields this argv:
-    //   0: /…/node_modules/.bin/ts-node
-    //   1: /…/src/scripts/build/package.ts
-    //   2: foo
-
-    const args: { [key: string]: any } = {
-        /** Produce an unoptimized VSIX. Include git SHA in version string. */
-        debug: false,
-        /** Skips `npm run clean` when building the VSIX. This prevents file watching from breaking. */
-        skipClean: false,
-        feature: '',
-    }
-
-    const givenArgs = process.argv.slice(2)
-    const validOptions = ['--debug', '--no-clean', '--feature']
-    const expectValue = ['--feature']
-
-    for (let i = 0; i < givenArgs.length; i++) {
-        const a = givenArgs[i]
-        const argName = a.replace(/^-+/, '') // "--foo" => "foo"
-        if (!validOptions.includes(a)) {
-            throw Error(`invalid argument: ${a}`)
-        }
-        if (expectValue.includes(a)) {
-            i++
-            const val = givenArgs[i]
-            if (val === undefined) {
-                throw Error(`missing value for arg: ${a}`)
+        function parseArgs() {
+            // Invoking this script with argument "foo":
+            //   $ npm run package -- foo
+            // yields this argv:
+            //   0: /…/node_modules/.bin/ts-node
+            //   1: /…/src/scripts/build/package.ts
+            //   2: foo
+        
+            const args: { [key: string]: any } = {
+                /** Produce an unoptimized VSIX. Include git SHA in version string. */
+                debug: false,
+                /** Skips `npm run clean` when building the VSIX. This prevents file watching from breaking. */
+                skipClean: false,
+                feature: '',
             }
-            args[argName] = val
-        } else {
-            args[argName] = true
+        
+            const givenArgs = process.argv.slice(2)
+            const validOptions = ['--debug', '--no-clean', '--feature']
+            const expectValue = ['--feature']
+        
+            for (let i = 0; i < givenArgs.length; i++) {
+                const a = givenArgs[i]
+                const argName = a.replace(/^-+/, '') // "--foo" => "foo"
+                if (!validOptions.includes(a)) {
+                    throw Error(`invalid argument: ${a}`)
+                }
+                if (expectValue.includes(a)) {
+                    i++
+                    const val = givenArgs[i]
+                    if (val === undefined) {
+                        throw Error(`missing value for arg: ${a}`)
+                    }
+                    args[argName] = val
+                } else {
+                    args[argName] = true
+                }
+            }
+        
+            return args
         }
-    }
-
-    return args
-}
-
-/**
- * If the _current_ commit is tagged as a release ("v1.26.0") then it is a "release build", else it
- * is a prerelease/nightly/edge/preview build.
- */
-function isRelease(): boolean {
-    const tag = child_process.execFileSync('git', ['tag', '-l', '--contains', 'HEAD']).toString()
-    return !!tag?.match(/v\d+\.\d+\.\d+/)
-}
-
-/**
- * Whether or not this a private beta build
- */
-function isBeta(): boolean {
-    try {
-        // This path only exists for packages/toolkit.
-        // As noted before: "Importing from `src` isn't great but it does make things simple"
-        // TODO: Generalize betaUrl for all packages.
-        const betaUrl = require(path.resolve('./src/dev/config')).betaUrl
-        return !!betaUrl
-    } catch {
-        return false
-    }
-}
-
-/**
- * Gets a suffix to append to the version-string, or empty for release builds.
+        
+        /**
+         * If the _current_ commit is tagged as a release ("v1.26.0") then it is a "release build", else it
+         * is a prerelease/nightly/edge/preview build.
+         */
+        function isRelease(): boolean {
+            const tag = child_process.execFileSync('git', ['tag', '-l', '--contains', 'HEAD']).toString()
+            return !!tag?.match(/v\d+\.\d+\.\d+/)
+        }
+        
+        /**
+         * Whether or not this a private beta build
+         */
+        function isBeta(): boolean {
+            try {
+                // This path only exists for packages/toolkit.
+                // As noted before: "Importing from `src` isn't great but it does make things simple"
+                // TODO: Generalize betaUrl for all packages.
+                const betaUrl = require(path.resolve('./src/dev/config')).betaUrl
+                return !!betaUrl
+            } catch {
+                return false
+            }
+        }
+        
+        /**
+         * Gets a suffix to append to the version-string, or empty for release builds.
  *
  * TODO: use `git describe` instead.
  *
